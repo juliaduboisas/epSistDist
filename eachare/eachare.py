@@ -3,7 +3,10 @@ import sys
 import threading
 
 import commandHandler
-import aux
+import inputArgumentsChecker
+import peer
+from eachare.inputArgumentsChecker import checkInputArguments
+
 
 def receiveConnections(socket):
     print(f"Connection receiver initialized on socket {socket}")
@@ -20,7 +23,8 @@ def connectedSocket(socket):
 
 def eachare():
     # RECEBENDO O INPUT DA LINHA DE COMANDO
-    aux.checkInputArguments(sys.argv)
+    inputCheck = aux.checkInputArguments(sys.argv)
+    inputCheck.checkAll()
     address = sys.argv[1].split(":")[0]
     port = int(sys.argv[1].split(":")[1])
     neighboursFile = sys.argv[2]
