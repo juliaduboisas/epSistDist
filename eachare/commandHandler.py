@@ -1,4 +1,6 @@
 import sys
+import socket
+import this
 
 import peer
 
@@ -10,33 +12,17 @@ communicate, the neighbours and the active neighbours
 class commandHandler():
 
     connectionSocket: socket
-    neighbourList: List[peer]
 
-    def setConnectionSocket(connectionSocket):
-        this.connectionSocket = connectionSocket
+    def __init__(self):
+        pass
 
-    def getConnectionSocket():
-        return this.connectionSocket
+    def setConnectionSocket(self, connectionSocket):
+        self.connectionSocket = connectionSocket
 
-    def setNeighbourList(neighbourList):
-        this.neighbourList = neighbourList
+    def getConnectionSocket(self):
+        return self.connectionSocket
 
-    def getNeighbourList():
-        return this.neighbourList
-
-    def addNeighbour(neighbour):
-        this.neighbourList.append(neighbour)
-
-    def setActiveNeighbourList(activeNeighbourList):
-        this.activeNeighbourList = activeNeighbourList
-
-    def getActiveNeighbourList():
-        return this.activeNeighbourList
-
-    def addActiveNeighbour(activeNeighbour):
-        this.activeNeighbourList.append(activeNeighbour)
-
-    def handleCommand(command):
+    def handleCommand(self, command):
         match command:
             case 1:
                 return "HELLO"
@@ -48,6 +34,25 @@ class commandHandler():
             case _:
                 return "Esse comando não é reconhecido"
 
-    def handleRemoteCommand(command, localSocket, remoteSocket):
-        if "HELLO" in command:
+    def handleRemoteCommand(self, message: str, receiverSocket: socket.socket):
+        # gramatica da mensagem:
+        # <ORIGEM> <CLOCK> <TIPO>[ ARGUMENTO1 ARGUMENTO2...]\n
+        senderIP = message.split(" ")[0].split(":")[0]
+        senderPort = int(message.split(" ")[0].split(":")[1])
+        senderClock = int(message.split(" ")[1]) # esse clock no momento é local, mas imagino que futuramente virará global
+        messageType = message.split(" ")[2]
+        messageArgs : List[str] = message.split("[ ")[1:]
 
+        if "HELLO" in command:
+            peer = findPeerInList(senderIP, senderPort)
+            if(peer == None):
+                peer = peer.Peer(senderIP, senderPort)
+                peer.setStatusOnline()
+                self.addNeighbour(peer)
+
+    def findPeerInList(self, IP:str, port:int):
+        for p in neighbourList:
+            if(IP == p.getAddress() and port == p.getPort()):
+                return p
+
+        return None
