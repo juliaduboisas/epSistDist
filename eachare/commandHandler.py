@@ -3,6 +3,7 @@ import socket
 import this
 
 import peer
+import eachare
 
 '''
 This function is made to handle all the commands a peer receives.
@@ -12,6 +13,14 @@ communicate, the neighbours and the active neighbours
 class commandHandler():
 
     connectionSocket: socket
+    inputCommandOptions = ("Escolha um comando:\n" +
+                              "\t[1] Listar peers\n" +
+                              "\t[2] Obter peers\n" +
+                              "\t[3] Listar arquivos locais\n" +
+                              "\t[4] Buscar arquivos\n" +
+                              "\t[5] Exibir estatisticas\n" +
+                              "\t[6] Alterar tamanho de chunk\n" +
+                              "\t[9] Sair")
 
     def __init__(self):
         pass
@@ -22,17 +31,60 @@ class commandHandler():
     def getConnectionSocket(self):
         return self.connectionSocket
 
-    def handleCommand(self, command):
+    def printCommandOptions(self):
+        print(self.inputCommandOptions)
+
+    def printNeighboursList(self, currentPeer):
+        i = 0
+        print("Lista de peers:\n" +
+              f"\t[{i}] voltar para o menu anterior")
+        for neighbour in currentPeer.neighbourPeers:
+            i+=1
+            print(f"\t[{i}] {neighbour}")
+
+    def handleCommand(self, commandedPeer: eachare, command: int):
         match command:
             case 1:
-                return "HELLO"
+                self.printNeighboursList(self, commandedPeer.currentPeer)
+                chosenPeer = int(input("> "))
+                if(chosenPeer == 0):
+                    return
+                neighbour = commandedPeer.currentPeer.neighbourPeers[chosenPeer]
+                commandedPeer.increaseLocalClock()
+                try:
+                    commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
+                                              commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                                              commandedPeer.getLocalClock(),
+                                              "HELLO",
+                                              neighbour.getAddress(),
+                                              neighbour.getPort())
+                    print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status ONLINE")
+                    neighbour.setStatusOnline()
+
+                except BrokenPipeError:
+                    print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
+                    neighbour.setStatusOffline()
+                return
             case 9:
-                # enviar mensagem tipo "BYE" para cada peer que estiver online
                 # parar de esperar conexões (fechar o socket de conexões)
+                commandedPeer.closeListening()
+                print("\nSaindo...")
+                # aumentar clock local
+                commandedPeer.increaseLocalClock()
+                # enviar mensagem tipo "BYE" para cada peer que estiver online
+                for neighbour in commandedPeer.currentPeer.neighbourPeers:
+                    if neighbour.getStatus == True:
+                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
+                                                  commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                                                  commandedPeer.getLocalClock(),
+                                                  "BYE",
+                                                  neighbour.getAddress(),
+                                                  neighbour.getPort())
                 # terminar execução do programa
                 sys.exit(f"Programa encerrado por comando do usuário")
             case _:
-                return "Esse comando não é reconhecido"
+                print("Esse comando não é reconhecido ou não está implementado")
+                return
 
     def handleRemoteCommand(self, message: str, receiverSocket: socket.socket):
         # gramatica da mensagem:

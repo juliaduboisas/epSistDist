@@ -8,19 +8,49 @@ import peer as p
 
 class eachare():
 
+    currentPeer: p
     peerSocket: socket.socket()
-    handler: ch.commandHandler
-    openListening: bool
+    handler: ch
+    listening: bool
+    localClock: int
 
     def receiveConnections(self):
         print(f"[DEBUG] Socket {self.peerSocket} ouvindo.")
-        while self.openListening:
+        while self.listening:
             self.peerSocket.listen()
             # se pegar uma conexão, passar para uma outra porta de socket? e manter a escolhida
             # aberta para conexões (eu ACHO)
+        (f"[DEBUG] Thread de listen fechando.")
+        return
 
     def receiveCommands(self):
         print(f"[DEBUG] Socket {self.peerSocket} existente para mandar comandos.")
+        # INICIO DA EXECUCAO DO PROGRAMA
+        while True:
+            # IMPRIMIR OPCOES
+            self.handler.printCommandOptions(self.handler)
+            # RECEBER ENTRADA
+            command = int(input("> "))
+            # PROCESSAR ENTRADA
+            self.handler.handleCommand(self.handler, self, command)
+
+    def getLocalClock(self):
+        return self.localClock
+
+    def increaseLocalClock(self):
+        self.localClock += 1
+        print(f"=> Atualizando relogio para {self.localClock}")
+
+    def openListening(self):
+        self.listening = True
+
+    def closeListening(self):
+        self.listening = False
+
+    def sendMessage(self, senderAddress, senderPort, clock, type, receiverAddress, receiverPort):
+        message = f"{senderAddress}:{senderPort} {clock} {type}"
+        print(f"Encaminhando mensagem \"{message}\" para {receiverAddress}:{receiverPort}")
+        self.peerSocket.send(message.encode())
 
     def startProgram(self):
         # RECEBENDO O INPUT DA LINHA DE COMANDO
@@ -37,25 +67,9 @@ class eachare():
         self.peerSocket.bind((address, port))
         print("[DEBUG] Socket criado.")
 
-        # CRIANDO A THREAD DE CONEXÕES
-        # essa thread mantém o socket aberto para escutar novas conexões
-        # e, quando recebe uma nova conexão, a passa para uma nova porta
-        # e inicia uma nova thread de comunicação
-        print(f"[DEBUG] Iniciando thread de listen no socket {self.peerSocket}.")
-        self.openListening = True
-        receiveConnectionsThread = threading.Thread(target=self.receiveConnections, args=())
-        receiveConnectionsThread.start()
-        print("[DEBUG] Thread de listen criada.")
-
-        # CRIANDO A THREAD DE COMANDOS
-        # essa thread recebe os comandos do usuário
-        print(f"[DEBUG] Iniciando thread de comandos.")
-        receiveCommandsThread = threading.Thread(target=self.receiveCommands(), args=())
-        receiveCommandsThread.start()
-        print("[DEBUG] Thread de comandos criada.")
-
-
-        # INSTANCIANDO O COMMAND HANDLER
+        # CRIANDO O PEER ATUAL
+        self.currentPeer = p.peer
+        self.currentPeer.__init__(self.currentPeer, address, port)
 
         # INICIANDO RELOGIO LOCAL
         # funcionamento do relogio local
@@ -65,23 +79,35 @@ class eachare():
         #   saída padrão com o seguinte formato: "=> Atualizando relogio para <valor>"
 
         # inicia o clock do peer
-        localClock = 0
+        self.localClock = 0
+        print(f"[DEBUG] Clock iniciado em {self.localClock}.")
 
-        # MENSAGENS PARA IMPRIMIR
-        commandOptions = ("Escolha um comando:\n" +
-                          "\t[1] Listar peers\n" +
-                          "\t[2] Obter peers\n" +
-                          "\t[3] Listar arquivos locais\n" +
-                          "\t[4] Buscar arquivos\n" +
-                          "\t[5] Exibir estatisticas\n" +
-                          "\t[6] Alterar tamanho de chunk\n" +
-                          "\t[9] Sair")
+        # INSTANCIANDO O COMMAND HANDLER
+        self.handler = ch.commandHandler
+        # inicia o handler do peer
+        self.handler.__init__(self.handler)
+        print(f"[DEBUG] Command handler iniciado.")
 
-        # INICIO DA EXECUCAO DO PROGRAMA
-        while True:
-            print(commandOptions)
-            command = input("> ")
+        # CRIANDO A THREAD DE CONEXÕES
+        # essa thread mantém o socket aberto para escutar novas conexões
+        # e, quando recebe uma nova conexão, a passa para uma nova porta
+        # e inicia uma nova thread de comunicação
+        print(f"[DEBUG] Iniciando thread de listen no socket {self.peerSocket}.")
+        self.openListening()
+        receiveConnectionsThread = threading.Thread(target=self.receiveConnections, args=())
+        receiveConnectionsThread.start()
+        print("[DEBUG] Thread de listen criada.")
 
+        # SALVANDO OS PEERS DO ARQUIVO DE VIZINHOS
+        self.currentPeer.makeNeighbourList(self.currentPeer, neighboursFile)
+
+
+        # CRIANDO A THREAD DE COMANDOS
+        # essa thread recebe os comandos do usuário
+        print(f"[DEBUG] Iniciando thread de comandos.")
+        receiveCommandsThread = threading.Thread(target=self.receiveCommands(), args=())
+        receiveCommandsThread.start()
+        print("[DEBUG] Thread de comandos criada.")
 
 if __name__ == '__main__':
     eachare = eachare()
