@@ -1,6 +1,6 @@
 import sys
 import socket
-import this
+import os
 
 import peer
 import eachare
@@ -78,6 +78,11 @@ class commandHandler():
                     except BrokenPipeError:
                         print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
                         neighbour.setStatusOffline()
+                return
+            case 3:
+                for file in os.listdir(commandedPeer.directory):
+                    filename = os.fsdecode(file)
+                    print(f"\t{filename}")
                 return
             case 9:
                 # parar de esperar conexões (fechar o socket de conexões)

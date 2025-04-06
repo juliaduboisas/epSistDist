@@ -13,6 +13,8 @@ class eachare():
     handler: ch
     listening: bool
     localClock: int
+    neighboursFile: str
+    directory: str
 
     def receiveConnections(self):
         print(f"[DEBUG] Socket {self.peerSocket} ouvindo.")
@@ -58,8 +60,8 @@ class eachare():
         inputCheck.checkAll()
         address = sys.argv[1].split(":")[0]
         port = int(sys.argv[1].split(":")[1])
-        neighboursFile = sys.argv[2]
-        directory = sys.argv[3]
+        self.neighboursFile = sys.argv[2]
+        self.directory = sys.argv[3]
         print("[DEBUG] Argumentos separados no programa principal.")
 
         # COLOCANDO NO SOCKET
@@ -99,7 +101,7 @@ class eachare():
         print("[DEBUG] Thread de listen criada.")
 
         # SALVANDO OS PEERS DO ARQUIVO DE VIZINHOS
-        self.currentPeer.makeNeighbourList(self.currentPeer, neighboursFile)
+        self.currentPeer.makeNeighbourList(self.currentPeer, self.neighboursFile)
 
 
         # CRIANDO A THREAD DE COMANDOS
