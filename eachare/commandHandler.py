@@ -44,12 +44,12 @@ class commandHandler():
 
     def handleCommand(self, commandedPeer: eachare, command: int):
         match command:
-            case 1:
+            case 1: # COMANDO HELLO
                 self.printNeighboursList(self, commandedPeer.currentPeer)
                 chosenPeer = int(input("> "))
                 if(chosenPeer == 0):
                     return
-                neighbour = commandedPeer.currentPeer.neighbourPeers[chosenPeer]
+                neighbour = commandedPeer.currentPeer.neighbourPeers[chosenPeer-1]
                 commandedPeer.increaseLocalClock()
                 try:
                     commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
@@ -60,10 +60,24 @@ class commandHandler():
                                               neighbour.getPort())
                     print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status ONLINE")
                     neighbour.setStatusOnline()
-
                 except BrokenPipeError:
                     print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
                     neighbour.setStatusOffline()
+                return
+            case 2: # COMANDO GET_PEERS
+                for neighbour in commandedPeer.currentPeer.neighbourPeers:
+                    try:
+                        commandedPeer.increaseLocalClock()
+                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
+                                                  commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                                                  commandedPeer.getLocalClock(),
+                                                  "GET_PEERS",
+                                                  neighbour.getAddress(),
+                                                  neighbour.getPort())
+                        # RECEBER RESPOSTA AQUI!!!
+                    except BrokenPipeError:
+                        print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
+                        neighbour.setStatusOffline()
                 return
             case 9:
                 # parar de esperar conexões (fechar o socket de conexões)
