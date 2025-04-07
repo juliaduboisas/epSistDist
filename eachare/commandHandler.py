@@ -52,8 +52,8 @@ class commandHandler():
                 neighbour = commandedPeer.currentPeer.neighbourPeers[chosenPeer-1]
                 commandedPeer.increaseLocalClock()
                 try:
-                    commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
-                                              commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                    commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
+                                              commandedPeer.currentPeer.getPort(),
                                               commandedPeer.getLocalClock(),
                                               "HELLO",
                                               neighbour.getAddress(),
@@ -68,8 +68,8 @@ class commandHandler():
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     try:
                         commandedPeer.increaseLocalClock()
-                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
-                                                  commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
+                                                  commandedPeer.currentPeer.getPort(),
                                                   commandedPeer.getLocalClock(),
                                                   "GET_PEERS",
                                                   neighbour.getAddress(),
@@ -78,6 +78,8 @@ class commandHandler():
                     except BrokenPipeError:
                         print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
                         neighbour.setStatusOffline()
+                    except ConnectionRefusedError:
+                        print(f"Conexao recusada no socket {neighbour}")
                 return
             case 3:
                 for file in os.listdir(commandedPeer.directory):
@@ -105,25 +107,95 @@ class commandHandler():
                 print("Esse comando não é reconhecido ou não está implementado")
                 return
 
-    def handleRemoteCommand(self, message: str, receiverSocket: socket.socket):
+    def handleRemoteCommand(self, receiverPeer, message: str, receiverSocket: socket.socket, senderSocket: socket.socket):
         # gramatica da mensagem:
         # <ORIGEM> <CLOCK> <TIPO>[ ARGUMENTO1 ARGUMENTO2...]\n
         senderIP = message.split(" ")[0].split(":")[0]
         senderPort = int(message.split(" ")[0].split(":")[1])
         senderClock = int(message.split(" ")[1]) # esse clock no momento é local, mas imagino que futuramente virará global
         messageType = message.split(" ")[2]
-        messageArgs : List[str] = message.split("[ ")[1:]
 
-        if "HELLO" in command:
-            peer = findPeerInList(senderIP, senderPort)
-            if(peer == None):
-                peer = peer.Peer(senderIP, senderPort)
-                peer.setStatusOnline()
-                self.addNeighbour(peer)
+        print(f"Resposta recebida: \"{message}\"")
 
-    def findPeerInList(self, IP:str, port:int):
-        for p in neighbourList:
+        if "HELLO" in messageType:
+            # print("[DEBUG] Recebida mensagem HELLO")
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer == None):
+                newPeer = peer.peer(senderIP, senderPort)
+                newPeer.setStatusOnline()
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, newPeer)
+                f = open(receiverPeer.neighboursFile, "a")
+                f.write(f"{senderIP}:{senderPort}\n")
+            else:
+                findPeer.setStatusOnline()
+        if "GET_PEERS" in messageType:
+            responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
+            for neighbour in receiverPeer.currentPeer.neighbourPeers:
+                responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:0\n "
+            receiverPeer.increaseLocalClock()
+            receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
+                                     receiverPeer.currentPeer.getPort(),
+                                     receiverPeer.getLocalClock(),
+                                     "PEER_LIST" + responseArgs,
+                                     senderIP,
+                                     senderPort)
+        if "PEER_LIST" in messageType:
+            # The next part is the number of peers in the list
+            num_peers = message.split(" ")[1]
+
+            # The next part is the type of message (PEER_LIST), we don't need to do anything with it here
+            message_type = message.split(" ")[2]
+
+            # The number of peers (num_peers) should be followed by the actual peer list
+            sentPeers = " ".join(message.split(" ")[4:])  # Get the remaining part that contains peer information
+            peers = sentPeers.strip().split(" ")  # Split into individual peer entries
+
+            for sentPeer in peers:
+                # separa informacao do peer
+                peerInfo = sentPeer.split(":")
+                peerIP = peerInfo[0]
+                peerPort = peerInfo[1]
+                peerStatus = peerInfo[2]
+
+                # Find the peer in the list based on IP and port
+                findPeer = self.findPeerInList(self, receiverPeer.currentPeer, peerIP, peerPort)
+
+                # If the peer is not found in the current list, add it
+                if findPeer is None:
+                    # Create a new peer object and add it to the neighbour list
+                    newPeer = peer.peer(peerIP, peerPort)
+                    receiverPeer.currentPeer.addNeighbour(newPeer)
+
+                    # Set the peer's status based on the message
+                    if peerStatus == "ONLINE":
+                        newPeer.setStatusOnline()
+                    elif peerStatus == "OFFLINE":
+                        newPeer.setStatusOffline()
+
+                    # Log the new peer to the neighbours file
+                    with open(receiverPeer.neighboursFile, "a") as f:
+                        f.write(f"{peerIP}:{peerPort}\n")
+                else:
+                    # If the peer is already in the list, just update its status
+                    if peerStatus == "ONLINE":
+                        findPeer.setStatusOnline()
+                    elif peerStatus == "OFFLINE":
+                        findPeer.setStatusOffline()
+        if "BYE" in messageType:
+            # print("[DEBUG] Recebida mensagem BYE")
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer == None):
+                newPeer = peer.peer(senderIP, senderPort)
+                newPeer.setStatusOffline()
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, newPeer)
+                f = open(receiverPeer.neighboursFile, "a")
+                f.write(f"{senderIP}:{senderPort}\n")
+            else:
+                findPeer.setStatusOffline()
+
+
+    def findPeerInList(self, currentPeer, IP:str, port:int):
+        for p in currentPeer.neighbourPeers:
             if(IP == p.getAddress() and port == p.getPort()):
                 return p
-
         return None

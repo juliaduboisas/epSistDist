@@ -49,7 +49,7 @@ class peer():
             port = int(line.split(":")[1])
             newPeer = peer(ip, int(port))
             newPeer.setStatusOffline()
-            self.addNeighbour(self, newPeer)
+            self.addNeighbour(newPeer)
 
         for neighbour in self.neighbourPeers:
             print(f"Adicionado novo peer {neighbour.getAddress()}:{neighbour.getPort()} status {"ONLINE" if neighbour.getStatus() else "OFFLINE"}")
