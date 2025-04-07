@@ -102,6 +102,7 @@ class commandHandler():
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
                 # terminar execução do programa
+                commandedPeer.peerSocket.close()
                 sys.exit(f"Programa encerrado por comando do usuário")
             case _:
                 print("Esse comando não é reconhecido ou não está implementado")

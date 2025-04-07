@@ -33,6 +33,7 @@ class eachare():
     def connectionThread(self, connectionSocket, address):
         message = connectionSocket.recv(1024).decode()
         self.handler.handleRemoteCommand(self.handler, self, message, connectionSocket, self.peerSocket)
+        connectionSocket.close()
 
     def receiveCommands(self):
         # print(f"[DEBUG] Socket {self.peerSocket} existente para mandar comandos.")
