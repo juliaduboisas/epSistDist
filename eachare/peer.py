@@ -26,6 +26,24 @@ class peer():
     def getPort(self):
         return self.port
 
+    # funcionamento do relogio local
+    # - antes de enviar uma mensagem, incrementa o clock em 1
+    # - ao receber uma mensagem, incrementa o clock em 1
+    # - sempre que o valor do relógio for atualizado, uma mensagem deverá ser exibida na
+    #   saída padrão com o seguinte formato: "=> Atualizando relogio para <valor>"
+    # - se o clock de uma mensagem recebida for maior que o local, atualizar o local
+    #   o maior entre os dois
+    def getClock(self):
+        return self.clock
+
+    def increaseClock(self):
+        self.clock += 1
+        print(f"=> Atualizando relogio para {self.clock}")
+
+    def updateClock(self, newClock: int):
+        self.clock = newClock
+        print(f"=> Atualizando relogio para {self.clock}")
+
     def setStatusOnline(self):
         self.status = True
 

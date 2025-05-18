@@ -12,7 +12,6 @@ class eachare():
     peerSocket: socket.socket()
     handler: ch
     listening: bool
-    localClock: int
     neighboursFile: str
     directory: str
 
@@ -47,12 +46,6 @@ class eachare():
             # PROCESSAR ENTRADA
             self.handler.handleCommand(self.handler, self, command)
 
-    def getLocalClock(self):
-        return self.localClock
-
-    def increaseLocalClock(self):
-        self.localClock += 1
-        print(f"=> Atualizando relogio para {self.localClock}")
 
     def openListening(self):
         self.listening = True
@@ -85,17 +78,6 @@ class eachare():
 
         # CRIANDO O PEER ATUAL
         self.currentPeer = p.peer(address, port)
-
-        # INICIANDO RELOGIO LOCAL
-        # funcionamento do relogio local
-        # - antes de enviar uma mensagem, incrementa o clock em 1
-        # - ao receber uma mensagem, incrementa o clock em 1
-        # - Sempre que o valor do relógio for atualizado, uma mensagem deverá ser exibida na
-        #   saída padrão com o seguinte formato: "=> Atualizando relogio para <valor>"
-
-        # inicia o clock do peer
-        self.localClock = 0
-        # print(f"[DEBUG] Clock iniciado em {self.localClock}.")
 
         # INSTANCIANDO O COMMAND HANDLER
         self.handler = ch.commandHandler

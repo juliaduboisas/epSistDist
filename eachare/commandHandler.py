@@ -51,11 +51,11 @@ class commandHandler():
                 if(chosenPeer == 0):
                     return
                 neighbour = commandedPeer.currentPeer.neighbourPeers[chosenPeer-1]
-                commandedPeer.increaseLocalClock()
+                commandedPeer.currentPeer.increaseClock()
                 try:
                     commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
                                               commandedPeer.currentPeer.getPort(),
-                                              commandedPeer.getLocalClock(),
+                                              commandedPeer.currentPeer.getClock(),
                                               "HELLO",
                                               neighbour.getAddress(),
                                               neighbour.getPort())
@@ -68,10 +68,10 @@ class commandHandler():
             case 2: # COMANDO GET_PEERS
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     try:
-                        commandedPeer.increaseLocalClock()
+                        commandedPeer.currentPeer.increaseClock()
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
                                                   commandedPeer.currentPeer.getPort(),
-                                                  commandedPeer.getLocalClock(),
+                                                  commandedPeer.currentPeer.getClock(),
                                                   "GET_PEERS",
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
@@ -92,14 +92,14 @@ class commandHandler():
                 commandedPeer.closeListening()
                 print("\nSaindo...")
                 # aumentar clock local
-                commandedPeer.increaseLocalClock()
+                commandedPeer.currentPeer.increaseClock()
                 # enviar mensagem tipo "BYE" para cada peer que estiver online
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus == "ONLINE":
                         print("[DEBUG] ENVIANDO BYE")
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
                                                   commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
-                                                  commandedPeer.getLocalClock(),
+                                                  commandedPeer.currentPeer.getClock(),
                                                   "BYE",
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
@@ -115,8 +115,14 @@ class commandHandler():
         parser.parse(message)
         senderIP = parser.senderIP
         senderPort = parser.senderPort
-        senderClock = parser.senderClock # esse clock no momento é local, mas imagino que futuramente virará global
+        senderClock = parser.senderClock
         messageType = parser.messageType
+
+        if(senderClock > receiverPeer.currentPeer.getClock()):
+            receiverPeer.currentPeer.updateClock(senderClock)
+
+        receiverPeer.currentPeer.increaseClock();
+
 
         print(f"Mensagem recebida: \"{message}\"")
 
@@ -135,10 +141,10 @@ class commandHandler():
             responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
             for neighbour in receiverPeer.currentPeer.neighbourPeers:
                 responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:0 "
-            receiverPeer.increaseLocalClock()
+            receiverPeer.currentPeer.increaseClock()
             receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
                                      receiverPeer.currentPeer.getPort(),
-                                     receiverPeer.getLocalClock(),
+                                     receiverPeer.currentPeer.getClock(),
                                      "PEER_LIST " + responseArgs,
                                      senderIP,
                                      senderPort)
