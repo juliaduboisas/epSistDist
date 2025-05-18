@@ -82,7 +82,7 @@ class commandHandler():
                     except ConnectionRefusedError:
                         print(f"Conexao recusada no socket {neighbour}")
                 return
-            case 3: # COMANDO OBTER_PEERS !!DEBUG ARRUMAR vou me matar
+            case 3: # COMANDO OBTER_PEERS [DEBUG] ARRUMAR vou me matar
                 for file in os.listdir(commandedPeer.directory):
                     filename = os.fsdecode(file)
                     print(f"\t{filename}")
@@ -96,7 +96,7 @@ class commandHandler():
                 # enviar mensagem tipo "BYE" para cada peer que estiver online
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus == "ONLINE":
-                        print("!!DEBUG ENVIANDO BYE")
+                        print("[DEBUG] ENVIANDO BYE")
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
                                                   commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
                                                   commandedPeer.getLocalClock(),
@@ -157,7 +157,7 @@ class commandHandler():
                 # separa informacao do peer
                 peerInfo = sentPeer.split(":")
                 peerIP = peerInfo[0]
-                peerPort = peerInfo[1]
+                peerPort = int(peerInfo[1])
                 peerStatus = peerInfo[2]
 
                 # Find the peer in the list based on IP and port
@@ -174,8 +174,7 @@ class commandHandler():
                         newPeer.setStatusOnline()
                     elif peerStatus == "OFFLINE":
                         newPeer.setStatusOffline()
-
-                else:
+                elif not(peerIP == receiverPeer.currentPeer.getAddress() and peerPort == receiverPeer.currentPeer.getPort()):
                     # If the peer is already in the list, just update its status
                     if peerStatus == "ONLINE":
                         findPeer.setStatusOnline()
@@ -198,9 +197,9 @@ class commandHandler():
         for p in currentPeer.neighbourPeers:
             pIP = p.getAddress()
             pPort = p.getPort()
-            print(f"!!DEBUG COMPARING {p} TO {IP}:{port}")
+            # print(f"[DEBUG] Comparando {p} com {IP}:{port}")
             if IP == pIP and port == pPort:
-                print("!!DEBUG MATCH")
+                # print("[DEBUG] Match")
                 return p
-            print("!!DEBUG NO MATCH")
+            # print("[DEBUG] Sem match")
         return None
