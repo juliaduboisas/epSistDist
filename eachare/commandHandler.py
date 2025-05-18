@@ -134,12 +134,12 @@ class commandHandler():
         if "GET_PEERS" in messageType:
             responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
             for neighbour in receiverPeer.currentPeer.neighbourPeers:
-                responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:0\n "
+                responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:0 "
             receiverPeer.increaseLocalClock()
             receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
                                      receiverPeer.currentPeer.getPort(),
                                      receiverPeer.getLocalClock(),
-                                     "PEER_LIST" + responseArgs,
+                                     "PEER_LIST " + responseArgs,
                                      senderIP,
                                      senderPort)
         if "PEER_LIST" in messageType:
