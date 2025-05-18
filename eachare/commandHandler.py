@@ -4,6 +4,7 @@ import os
 
 import peer
 import eachare
+import messageParser
 
 '''
 This function is made to handle all the commands a peer receives.
@@ -60,7 +61,7 @@ class commandHandler():
                                               neighbour.getPort())
                     print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status ONLINE")
                     neighbour.setStatusOnline()
-                except BrokenPipeError:
+                except ConnectionRefusedError:
                     print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
                     neighbour.setStatusOffline()
                 return
@@ -81,7 +82,7 @@ class commandHandler():
                     except ConnectionRefusedError:
                         print(f"Conexao recusada no socket {neighbour}")
                 return
-            case 3:
+            case 3: # COMANDO OBTER_PEERS !!DEBUG ARRUMAR vou me matar
                 for file in os.listdir(commandedPeer.directory):
                     filename = os.fsdecode(file)
                     print(f"\t{filename}")
@@ -94,7 +95,8 @@ class commandHandler():
                 commandedPeer.increaseLocalClock()
                 # enviar mensagem tipo "BYE" para cada peer que estiver online
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
-                    if neighbour.getStatus == True:
+                    if neighbour.getStatus == "ONLINE":
+                        print("!!DEBUG ENVIANDO BYE")
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
                                                   commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
                                                   commandedPeer.getLocalClock(),
@@ -102,21 +104,21 @@ class commandHandler():
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
                 # terminar execução do programa
-                commandedPeer.peerSocket.close()
                 sys.exit(f"Programa encerrado por comando do usuário")
             case _:
                 print("Esse comando não é reconhecido ou não está implementado")
                 return
 
     def handleRemoteCommand(self, receiverPeer, message: str, receiverSocket: socket.socket, senderSocket: socket.socket):
-        # gramatica da mensagem:
-        # <ORIGEM> <CLOCK> <TIPO>[ ARGUMENTO1 ARGUMENTO2...]\n
-        senderIP = message.split(" ")[0].split(":")[0]
-        senderPort = int(message.split(" ")[0].split(":")[1])
-        senderClock = int(message.split(" ")[1]) # esse clock no momento é local, mas imagino que futuramente virará global
-        messageType = message.split(" ")[2]
 
-        print(f"Resposta recebida: \"{message}\"")
+        parser = messageParser.messageParser()
+        parser.parse(message)
+        senderIP = parser.senderIP
+        senderPort = parser.senderPort
+        senderClock = parser.senderClock # esse clock no momento é local, mas imagino que futuramente virará global
+        messageType = parser.messageType
+
+        print(f"Mensagem recebida: \"{message}\"")
 
         if "HELLO" in messageType:
             # print("[DEBUG] Recebida mensagem HELLO")
@@ -162,7 +164,7 @@ class commandHandler():
                 findPeer = self.findPeerInList(self, receiverPeer.currentPeer, peerIP, peerPort)
 
                 # If the peer is not found in the current list, add it
-                if findPeer is None:
+                if findPeer is None and not(peerIP == receiverPeer.currentPeer.getAddress() and peerPort == receiverPeer.currentPeer.getPort()):
                     # Create a new peer object and add it to the neighbour list
                     newPeer = peer.peer(peerIP, peerPort)
                     receiverPeer.currentPeer.addNeighbour(newPeer)
@@ -173,9 +175,6 @@ class commandHandler():
                     elif peerStatus == "OFFLINE":
                         newPeer.setStatusOffline()
 
-                    # Log the new peer to the neighbours file
-                    with open(receiverPeer.neighboursFile, "a") as f:
-                        f.write(f"{peerIP}:{peerPort}\n")
                 else:
                     # If the peer is already in the list, just update its status
                     if peerStatus == "ONLINE":
@@ -197,6 +196,11 @@ class commandHandler():
 
     def findPeerInList(self, currentPeer, IP:str, port:int):
         for p in currentPeer.neighbourPeers:
-            if(IP == p.getAddress() and port == p.getPort()):
+            pIP = p.getAddress()
+            pPort = p.getPort()
+            print(f"!!DEBUG COMPARING {p} TO {IP}:{port}")
+            if IP == pIP and port == pPort:
+                print("!!DEBUG MATCH")
                 return p
+            print("!!DEBUG NO MATCH")
         return None
