@@ -3,11 +3,13 @@ class peer():
     port: int()
     status: bool
     neighbourPeers: []
+    clock: int()
 
     def __init__(self, address: str, port: int):
         self.address = address
         self.port = port
         self.neighbourPeers = []
+        self.clock = 0
 
     def __str__(self):
         return f"{self.address}:{self.port} {"ONLINE" if self.status else "OFFLINE"}"

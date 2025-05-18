@@ -28,6 +28,7 @@ class eachare():
             # print("[DEBUG] Nova thread criada para receber a mensagem da conexao.")
             # print("[DEBUG] Ouvindo novamente.")
         # (f"[DEBUG] Thread de listen fechando.")
+        self.peerSocket.close()
         return
 
     def connectionThread(self, connectionSocket, address):
