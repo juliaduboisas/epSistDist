@@ -118,13 +118,12 @@ class commandHandler():
         senderClock = parser.senderClock
         messageType = parser.messageType
 
+        print(f"Mensagem recebida: \"{message}\"")
+
         if(senderClock > receiverPeer.currentPeer.getClock()):
             receiverPeer.currentPeer.updateClock(senderClock)
-
-        receiverPeer.currentPeer.increaseClock();
-
-
-        print(f"Mensagem recebida: \"{message}\"")
+        else:
+            receiverPeer.currentPeer.increaseClock()
 
         if "HELLO" in messageType:
             # print("[DEBUG] Recebida mensagem HELLO")
@@ -132,15 +131,28 @@ class commandHandler():
             if(findPeer == None):
                 newPeer = peer.peer(senderIP, senderPort)
                 newPeer.setStatusOnline()
+                newPeer.updatePeerClock(0)
                 receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, newPeer)
-                f = open(receiverPeer.neighboursFile, "a")
-                f.write(f"{senderIP}:{senderPort}\n")
+                print(f"Adicionado novo peer {newPeer.getAddress()}:{newPeer.getPort()}:{newPeer.getClock()} status {"ONLINE" if newPeer.getStatus() else "OFFLINE"}")
+                if(newPeer.getClock() < senderClock):
+                    newPeer.updatePeerClock(senderClock)
+                print(f"Atualizando peer {newPeer.getAddress()}:{newPeer.getPort()}:{newPeer.getClock()} status {"ONLINE" if newPeer.getStatus() else "OFFLINE"}")
             else:
                 findPeer.setStatusOnline()
+                if(findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
         if "GET_PEERS" in messageType:
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None) and (findPeer.getClock() < senderClock):
+                findPeer.setStatusOnline()
+                findPeer.updatePeerClock(senderClock)
+                print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+
             responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
             for neighbour in receiverPeer.currentPeer.neighbourPeers:
-                responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:0 "
+                if not(neighbour.getAddress() == senderIP and neighbour.getPort() == senderPort):
+                    responseArgs += f"{neighbour.getAddress()}:{neighbour.getPort()}:{"ONLINE" if neighbour.getStatus() else "OFFLINE"}:{neighbour.getClock()} "
             receiverPeer.currentPeer.increaseClock()
             receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
                                      receiverPeer.currentPeer.getPort(),
@@ -170,7 +182,7 @@ class commandHandler():
                 findPeer = self.findPeerInList(self, receiverPeer.currentPeer, peerIP, peerPort)
 
                 # If the peer is not found in the current list, add it
-                if findPeer is None and not(peerIP == receiverPeer.currentPeer.getAddress() and peerPort == receiverPeer.currentPeer.getPort()):
+                if findPeer is None:
                     # Create a new peer object and add it to the neighbour list
                     newPeer = peer.peer(peerIP, peerPort)
                     receiverPeer.currentPeer.addNeighbour(newPeer)
@@ -180,7 +192,7 @@ class commandHandler():
                         newPeer.setStatusOnline()
                     elif peerStatus == "OFFLINE":
                         newPeer.setStatusOffline()
-                elif not(peerIP == receiverPeer.currentPeer.getAddress() and peerPort == receiverPeer.currentPeer.getPort()):
+                else:
                     # If the peer is already in the list, just update its status
                     if peerStatus == "ONLINE":
                         findPeer.setStatusOnline()

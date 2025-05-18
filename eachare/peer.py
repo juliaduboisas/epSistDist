@@ -12,7 +12,7 @@ class peer():
         self.clock = 0
 
     def __str__(self):
-        return f"{self.address}:{self.port} {"ONLINE" if self.status else "OFFLINE"}"
+        return f"{self.address}:{self.port}:{"ONLINE" if self.status else "OFFLINE"}:{self.clock}"
 
     def setAddress(self, address: str):
         self.address = address
@@ -41,8 +41,11 @@ class peer():
         print(f"=> Atualizando relogio para {self.clock}")
 
     def updateClock(self, newClock: int):
-        self.clock = newClock
+        self.clock = newClock + 1
         print(f"=> Atualizando relogio para {self.clock}")
+
+    def updatePeerClock(self, newClock: int):
+        self.clock = newClock
 
     def setStatusOnline(self):
         self.status = True
@@ -69,6 +72,7 @@ class peer():
             port = int(line.split(":")[1])
             newPeer = peer(ip, int(port))
             newPeer.setStatusOffline()
+            newPeer.updateClock(0)
             self.addNeighbour(newPeer)
 
         for neighbour in self.neighbourPeers:
