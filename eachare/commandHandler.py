@@ -108,7 +108,7 @@ class commandHandler():
                     except ConnectionRefusedError:
                         print(f"Conexao recusada no socket {neighbour}")
                 return
-            case 3: # COMANDO OBTER_PEERS [DEBUG] ARRUMAR vou me matar
+            case 3: # COMANDO OBTER_PEERS
                 for file in os.listdir(commandedPeer.directory):
                     filename = os.fsdecode(file)
                     print(f"\t{filename}")
@@ -124,7 +124,7 @@ class commandHandler():
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
                         self.numberOfAwaitedAnswers += 1
-                        print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                        # print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
                 commandedPeer.handleCommands = False
                 return
             case 9:
@@ -135,7 +135,7 @@ class commandHandler():
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus() == True:
                         commandedPeer.currentPeer.increaseClock()
-                        print("[DEBUG] ENVIANDO BYE")
+                        # print("[DEBUG] ENVIANDO BYE")
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
                                                   commandedPeer.currentPeer.getPort(),
                                                   commandedPeer.currentPeer.getClock(),
@@ -283,7 +283,7 @@ class commandHandler():
                 self.filesReceived.append(receivedFile)
 
             self.numberOfAnswers += 1
-            print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
+            # print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
 
             if self.numberOfAnswers == self.numberOfAwaitedAnswers:
                 self.printFilesList(self)
@@ -293,8 +293,8 @@ class commandHandler():
                     self.filesReceived.clear()
                     self.numberOfAnswers = 0
                     self.numberOfAwaitedAnswers = 0
-                    print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
-                    print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                    # print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
+                    # print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
                     receiverPeer.handleCommands = True
                     return
                 downloadFile = self.filesReceived[chosenFile-1]
