@@ -1,10 +1,12 @@
 import sys
 import socket
 import os
+import base64
 
 import peer
 import eachare
 import messageParser
+import file as f
 
 '''
 This function is made to handle all the commands a peer receives.
@@ -22,9 +24,14 @@ class commandHandler():
                               "\t[5] Exibir estatisticas\n" +
                               "\t[6] Alterar tamanho de chunk\n" +
                               "\t[9] Sair")
+    filesReceived: []
+    numberOfAnswers: int
+    numberOfAwaitedAnswers: int
 
     def __init__(self):
-        pass
+        self.filesReceived = []
+        self.numberOfAnswers = 0
+        self.numberOfAwaitedAnswers = 0
 
     def setConnectionSocket(self, connectionSocket):
         self.connectionSocket = connectionSocket
@@ -42,6 +49,25 @@ class commandHandler():
         for neighbour in currentPeer.neighbourPeers:
             i+=1
             print(f"\t[{i}] {neighbour}")
+
+    def printFilesList(self):
+        i = 0
+        print("Arquivos encontrados na rede: \n" +
+              f"\t[{i}] Cancelar")
+        for file in self.filesReceived:
+            i+=1
+            print(f"\t[{i}] {file}")
+
+    def encodeFileToBase64(self, filepath):
+        with open(filepath, "rb") as file:
+            file_content = file.read()
+            encoded_content = base64.b64encode(file_content)
+            return encoded_content.decode('utf-8')
+
+    def decodeBase64ToFile(self, encoded, outputFilepath):
+        decodedFile = base64.b64decode(encoded)
+        with open(outputFilepath, "wb") as file:
+            file.write(decodedFile)
 
     def handleCommand(self, commandedPeer: eachare, command: int):
         match command:
@@ -90,31 +116,36 @@ class commandHandler():
             case 4: # COMANDO BUSCAR
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus() == True:
+                        commandedPeer.currentPeer.increaseClock()
                         commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
                                                   commandedPeer.currentPeer.getPort(),
                                                   commandedPeer.currentPeer.getClock(),
                                                   "LS",
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
+                        self.numberOfAwaitedAnswers += 1
+                        print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                commandedPeer.handleCommands = False
                 return
             case 9:
                 # parar de esperar conexões (fechar o socket de conexões)
                 commandedPeer.closeListening()
                 print("\nSaindo...")
-                # aumentar clock local
-                commandedPeer.currentPeer.increaseClock()
                 # enviar mensagem tipo "BYE" para cada peer que estiver online
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus() == True:
+                        commandedPeer.currentPeer.increaseClock()
                         print("[DEBUG] ENVIANDO BYE")
-                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(commandedPeer.currentPeer),
-                                                  commandedPeer.currentPeer.getPort(commandedPeer.currentPeer),
+                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
+                                                  commandedPeer.currentPeer.getPort(),
                                                   commandedPeer.currentPeer.getClock(),
                                                   "BYE",
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
                 # terminar execução do programa
-                sys.exit(f"Programa encerrado por comando do usuário")
+                commandedPeer.closeListening()
+                commandedPeer.stopReceiving()
+                os._xexit(0)
             case _:
                 print("Esse comando não é reconhecido ou não está implementado")
                 return
@@ -222,7 +253,6 @@ class commandHandler():
                     print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
             print("> ")
         if "LS" == messageType:
-            print("[DEBUG] In LS type")
             numberOfFiles = 0
             for file in os.listdir(receiverPeer.directory):
                 numberOfFiles += 1
@@ -242,7 +272,61 @@ class commandHandler():
             print("> ")
             return
         if "LS_LIST" == messageType:
-            print("[DEBUG] In LS_LIST type")
+            numFiles = message.split(" ")[3]
+            sentFiles = " ".join(message.split(" ")[4:])  # Get the remaining part that contains peer information
+            files = sentFiles.strip().split(" ")
+
+            for file in files:
+                name = file.split(":")[0]
+                size = int(file.split(":")[1])
+                receivedFile = f.file(name, size, senderIP, senderPort)
+                self.filesReceived.append(receivedFile)
+
+            self.numberOfAnswers += 1
+            print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
+
+            if self.numberOfAnswers == self.numberOfAwaitedAnswers:
+                self.printFilesList(self)
+                print("Digite o numero do arquivo para fazer o download:")
+                chosenFile = int(input("> "))
+                if(chosenFile == 0):
+                    self.filesReceived.clear()
+                    self.numberOfAnswers = 0
+                    self.numberOfAwaitedAnswers = 0
+                    print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
+                    print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                    receiverPeer.handleCommands = True
+                    return
+                downloadFile = self.filesReceived[chosenFile-1]
+                receiverPeer.currentPeer.increaseClock()
+                receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
+                                          receiverPeer.currentPeer.getPort(),
+                                          receiverPeer.currentPeer.getClock(),
+                                          f"DL {downloadFile.getFilename()} 0 0",
+                                          downloadFile.getPeerIP(),
+                                          downloadFile.getPeerPort())
+            return
+        if "DL" == messageType:
+            filename = message.split(" ")[3]
+            filepath = f"{receiverPeer.directory}/{filename}"
+            encodedFile = self.encodeFileToBase64(self, filepath)
+            receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
+                                     receiverPeer.currentPeer.getPort(),
+                                     receiverPeer.currentPeer.getClock(),
+                                     f"FILE {filename} 0 0 {encodedFile}",
+                                     senderIP,
+                                     senderPort)
+            return
+        if "FILE" == messageType:
+
+            filename = message.split(" ")[3]
+            encodedFile = message.split(" ")[6]
+            decodedFile = self.decodeBase64ToFile(self, encodedFile, f"{receiverPeer.directory}/{filename}")
+            self.filesReceived.clear()
+            self.numberOfAnswers = 0
+            self.numberOfAwaitedAnswers = 0
+            print(f"Download do arquivo {filename} finalizado.")
+            receiverPeer.handleCommands = True
             return
         if "BYE" == messageType:
             # print("[DEBUG] Recebida mensagem BYE")
@@ -255,7 +339,6 @@ class commandHandler():
                 findPeer.setStatusOffline()
 
             print("> ")
-
 
     def findPeerInList(self, currentPeer, IP:str, port:int):
         for p in currentPeer.neighbourPeers:
