@@ -145,7 +145,7 @@ class commandHandler():
                 # terminar execução do programa
                 commandedPeer.closeListening()
                 commandedPeer.stopReceiving()
-                os._xexit(0)
+                os._exit(0)
             case _:
                 print("Esse comando não é reconhecido ou não está implementado")
                 return
