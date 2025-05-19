@@ -12,7 +12,7 @@ class peer():
         self.clock = 0
 
     def __str__(self):
-        return f"{self.address}:{self.port} {"ONLINE" if self.status else "OFFLINE"}"
+        return f"{self.address}:{self.port}:{"ONLINE" if self.status else "OFFLINE"}:{self.clock}"
 
     def setAddress(self, address: str):
         self.address = address
@@ -25,6 +25,27 @@ class peer():
 
     def getPort(self):
         return self.port
+
+    # funcionamento do relogio local
+    # - antes de enviar uma mensagem, incrementa o clock em 1
+    # - ao receber uma mensagem, incrementa o clock em 1
+    # - sempre que o valor do relógio for atualizado, uma mensagem deverá ser exibida na
+    #   saída padrão com o seguinte formato: "=> Atualizando relogio para <valor>"
+    # - se o clock de uma mensagem recebida for maior que o local, atualizar o local
+    #   o maior entre os dois
+    def getClock(self):
+        return self.clock
+
+    def increaseClock(self):
+        self.clock += 1
+        print(f"=> Atualizando relogio para {self.clock}")
+
+    def updateClock(self, newClock: int):
+        self.clock = newClock + 1
+        print(f"=> Atualizando relogio para {self.clock}")
+
+    def updatePeerClock(self, newClock: int):
+        self.clock = newClock
 
     def setStatusOnline(self):
         self.status = True
@@ -51,7 +72,8 @@ class peer():
             port = int(line.split(":")[1])
             newPeer = peer(ip, int(port))
             newPeer.setStatusOffline()
+            newPeer.updatePeerClock(0)
             self.addNeighbour(newPeer)
 
         for neighbour in self.neighbourPeers:
-            print(f"Adicionado novo peer {neighbour.getAddress()}:{neighbour.getPort()} status {"ONLINE" if neighbour.getStatus() else "OFFLINE"}")
+            print(f"Adicionado novo peer {neighbour.getAddress()}:{neighbour.getPort()}:{neighbour.getClock()} status {"ONLINE" if neighbour.getStatus() else "OFFLINE"}")

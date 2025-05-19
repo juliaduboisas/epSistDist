@@ -12,9 +12,10 @@ class eachare():
     peerSocket: socket.socket()
     handler: ch
     listening: bool
-    localClock: int
+    receiving: bool
     neighboursFile: str
     directory: str
+    handleCommands: bool
 
     def receiveConnections(self):
         # print(f"[DEBUG] Socket {self.peerSocket} ouvindo.")
@@ -32,33 +33,48 @@ class eachare():
         return
 
     def connectionThread(self, connectionSocket, address):
-        message = connectionSocket.recv(1024).decode()
+        message = self.recvUntilNewline(connectionSocket)
         self.handler.handleRemoteCommand(self.handler, self, message, connectionSocket, self.peerSocket)
         connectionSocket.close()
+        return
+
+    def recvUntilNewline(self, sock: socket.socket):
+        buffer = b''
+        while True:
+            data = sock.recv(1024)
+            if not data:
+                break  # conexão fechada
+            buffer += data
+            if b'\n' in buffer:
+                break
+        line, _, rest = buffer.partition(b'\n')
+        return line.decode()
 
     def receiveCommands(self):
         # print(f"[DEBUG] Socket {self.peerSocket} existente para mandar comandos.")
         # INICIO DA EXECUCAO DO PROGRAMA
-        while True:
-            # IMPRIMIR OPCOES
-            self.handler.printCommandOptions(self.handler)
-            # RECEBER ENTRADA
-            command = int(input("> "))
-            # PROCESSAR ENTRADA
-            self.handler.handleCommand(self.handler, self, command)
+        while self.receiving:
+            if self.handleCommands == True:
+                # IMPRIMIR OPCOES
+                self.handler.printCommandOptions(self.handler)
+                # RECEBER ENTRADA
+                command = int(input("> "))
+                # PROCESSAR ENTRADA
+                self.handler.handleCommand(self.handler, self, command)
+        return
 
-    def getLocalClock(self):
-        return self.localClock
-
-    def increaseLocalClock(self):
-        self.localClock += 1
-        print(f"=> Atualizando relogio para {self.localClock}")
 
     def openListening(self):
         self.listening = True
 
     def closeListening(self):
         self.listening = False
+
+    def startReceiving(self):
+        self.receiving = True
+
+    def stopReceiving(self):
+        self.receiving = False
 
     def sendMessage(self, senderAddress, senderPort, clock, type, receiverAddress, receiverPort):
         message = f"{senderAddress}:{senderPort} {clock} {type}"
@@ -86,17 +102,6 @@ class eachare():
         # CRIANDO O PEER ATUAL
         self.currentPeer = p.peer(address, port)
 
-        # INICIANDO RELOGIO LOCAL
-        # funcionamento do relogio local
-        # - antes de enviar uma mensagem, incrementa o clock em 1
-        # - ao receber uma mensagem, incrementa o clock em 1
-        # - Sempre que o valor do relógio for atualizado, uma mensagem deverá ser exibida na
-        #   saída padrão com o seguinte formato: "=> Atualizando relogio para <valor>"
-
-        # inicia o clock do peer
-        self.localClock = 0
-        # print(f"[DEBUG] Clock iniciado em {self.localClock}.")
-
         # INSTANCIANDO O COMMAND HANDLER
         self.handler = ch.commandHandler
         # inicia o handler do peer
@@ -109,6 +114,7 @@ class eachare():
         # e inicia uma nova thread de comunicação
         # print(f"[DEBUG] Iniciando thread de listen no socket {self.peerSocket}.")
         self.openListening()
+        self.startReceiving()
         receiveConnectionsThread = threading.Thread(target=self.receiveConnections, args=())
         receiveConnectionsThread.start()
         # print("[DEBUG] Thread de listen criada.")
@@ -120,6 +126,7 @@ class eachare():
         # CRIANDO A THREAD DE COMANDOS
         # essa thread recebe os comandos do usuário
         # print(f"[DEBUG] Iniciando thread de comandos.")
+        self.handleCommands = True
         receiveCommandsThread = threading.Thread(target=self.receiveCommands, args=())
         receiveCommandsThread.start()
         # print("[DEBUG] Thread de comandos criada.")
