@@ -135,7 +135,11 @@ class commandHandler():
                             print(f"Conexao recusada no socket {neighbour}")
                 commandedPeer.handleCommands = False
                 return
-            case 9:
+            case 6: # COMANDO ALTERAR TAMANHO DE CHUNK
+                print("Digite novo tamanho de chunk:")
+                newSize = int(input("> "))
+                commandedPeer.setChunkSize(newSize)
+            case 9: # COMANDO SAIR
                 # parar de esperar conexões (fechar o socket de conexões)
                 commandedPeer.closeListening()
                 print("\nSaindo...")

@@ -18,6 +18,13 @@ class eachare():
     chunkSize: int
     handleCommands: bool
 
+    def getChunkSize(self):
+        return self.chunkSize
+
+    def setChunkSize(self, size):
+        self.chunkSize = size
+        print(f"\tTamanho de chunk alterado: {self.chunkSize}")
+
     def receiveConnections(self):
         # print(f"[DEBUG] Socket {self.peerSocket} ouvindo.")
         while self.listening:
@@ -63,7 +70,6 @@ class eachare():
                 # PROCESSAR ENTRADA
                 self.handler.handleCommand(self.handler, self, command)
         return
-
 
     def openListening(self):
         self.listening = True
