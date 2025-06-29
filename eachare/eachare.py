@@ -15,6 +15,7 @@ class eachare():
     receiving: bool
     neighboursFile: str
     directory: str
+    chunkSize: int
     handleCommands: bool
 
     def receiveConnections(self):
@@ -93,6 +94,9 @@ class eachare():
         self.neighboursFile = sys.argv[2]
         self.directory = sys.argv[3]
         # print("[DEBUG] Argumentos separados no programa principal.")
+
+        # DETERMINANDO O TAMANHO INICIAL DO CHUNK
+        self.chunkSize = 256 # comandado no documento do ep
 
         # COLOCANDO NO SOCKET
         self.peerSocket = socket.socket()
