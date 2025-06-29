@@ -1,6 +1,9 @@
 import socket
 import sys
 import threading
+import time
+import math
+import numpy as np
 
 import commandHandler as ch
 import inputArgumentsChecker as argChecker
@@ -17,6 +20,7 @@ class eachare():
     directory: str
     chunkSize: int
     handleCommands: bool
+    downloadStatistics: []
 
     def getChunkSize(self):
         return self.chunkSize
@@ -28,14 +32,17 @@ class eachare():
     def receiveConnections(self):
         # print(f"[DEBUG] Socket {self.peerSocket} ouvindo.")
         while self.listening:
-            self.peerSocket.listen()
-            connectionSocket, address = self.peerSocket.accept()
-            # print("[DEBUG] Recebida conexao.")
-            # print("[DEBUG] Criando nova thread para a conexao.")
-            connectionThread = threading.Thread(target=self.connectionThread, args=(connectionSocket, address))
-            connectionThread.start()
-            # print("[DEBUG] Nova thread criada para receber a mensagem da conexao.")
-            # print("[DEBUG] Ouvindo novamente.")
+            try:
+                self.peerSocket.listen()
+                connectionSocket, address = self.peerSocket.accept()
+                # print("[DEBUG] Recebida conexao.")
+                # print("[DEBUG] Criando nova thread para a conexao.")
+                connectionThread = threading.Thread(target=self.connectionThread, args=(connectionSocket, address))
+                connectionThread.start()
+                # print("[DEBUG] Nova thread criada para receber a mensagem da conexao.")
+                # print("[DEBUG] Ouvindo novamente.")
+            except OSError: # if the main socket is closed
+                break
         # (f"[DEBUG] Thread de listen fechando.")
         self.peerSocket.close()
         return
@@ -64,33 +71,43 @@ class eachare():
         while self.receiving:
             if self.handleCommands == True:
                 # IMPRIMIR OPCOES
-                self.handler.printCommandOptions(self.handler)
-                # RECEBER ENTRADA
-                command = int(input("> "))
-                # PROCESSAR ENTRADA
-                self.handler.handleCommand(self.handler, self, command)
+                try: # garantia que os comandos vao funcionar
+                    self.handler.printCommandOptions(self.handler)
+                    # RECEBER ENTRADA
+                    command = int(input("> "))
+                    # PROCESSAR ENTRADA
+                    self.handler.handleCommand(self.handler, self, command)
+                except ValueError:
+                    print("Por favor, insira um novo comando")
         return
 
+    # Controle do recebimento de conexoes
     def openListening(self):
         self.listening = True
 
     def closeListening(self):
         self.listening = False
 
+    # Controle do recebimento de comandos
     def startReceiving(self):
         self.receiving = True
 
     def stopReceiving(self):
         self.receiving = False
 
+    # Manda uma mensagem para um peer especifico
     def sendMessage(self, senderAddress, senderPort, clock, type, receiverAddress, receiverPort):
         message = f"{senderAddress}:{senderPort} {clock} {type}"
         print(f"Encaminhando mensagem \"{message}\" para {receiverAddress}:{receiverPort}")
-        senderSocket = socket.socket()
-        senderSocket.connect((receiverAddress, receiverPort))
-        senderSocket.send(message.encode())
-        senderSocket.close()
+        try:
+            senderSocket = socket.socket()
+            senderSocket.connect((receiverAddress, receiverPort))
+            senderSocket.send(message.encode())
+            senderSocket.close()
+        except ConnectionRefusedError:
+            return
 
+    # Funcao principal!!
     def startProgram(self):
         # RECEBENDO O INPUT DA LINHA DE COMANDO
         inputCheck = argChecker.inputArgumentsChecker(sys.argv)
@@ -103,6 +120,9 @@ class eachare():
 
         # DETERMINANDO O TAMANHO INICIAL DO CHUNK
         self.chunkSize = 256 # comandado no documento do ep
+
+        # INICIALIZA AS ESTATISTICAS
+        self.downloadStatistics = []
 
         # COLOCANDO NO SOCKET
         self.peerSocket = socket.socket()

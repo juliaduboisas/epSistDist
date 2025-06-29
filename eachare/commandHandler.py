@@ -2,11 +2,17 @@ import sys
 import socket
 import os
 import base64
+import time
+import math
+import itertools
+from collections import defaultdict
+import numpy as np
 
 import peer
 import eachare
 import messageParser
 import file as f
+import downloadStats
 
 '''
 This function is made to handle all the commands a peer receives.
@@ -24,12 +30,14 @@ class commandHandler():
                               "\t[5] Exibir estatisticas\n" +
                               "\t[6] Alterar tamanho de chunk\n" +
                               "\t[9] Sair")
-    filesReceived: []
+    filesReceived: {}
+    activeDownloads: {}
     numberOfAnswers: int
     numberOfAwaitedAnswers: int
 
     def __init__(self):
-        self.filesReceived = []
+        self.filesReceived = {}
+        self.activeDownloads = {}
         self.numberOfAnswers = 0
         self.numberOfAwaitedAnswers = 0
 
@@ -39,9 +47,11 @@ class commandHandler():
     def getConnectionSocket(self):
         return self.connectionSocket
 
+    # Imprime o menu de opcoes padrao
     def printCommandOptions(self):
         print(self.inputCommandOptions)
 
+    # Imprime a lista de vizinhos conhecidos
     def printNeighboursList(self, currentPeer):
         i = 0
         print("Lista de peers:\n" +
@@ -50,25 +60,65 @@ class commandHandler():
             i+=1
             print(f"\t[{i}] {neighbour}")
 
+    # Updated function for EP3:
+    # Checks if the file is repeated on the list in order to print the "peer" column, avoiding replicated entries
     def printFilesList(self):
-        i = 0
-        print("Arquivos encontrados na rede: \n" +
-              f"\t[{i}] Cancelar")
-        for file in self.filesReceived:
-            i+=1
-            print(f"\t[{i}] {file}")
+        print("Arquivos encontrados na rede:")
+        print("Nome\t\t| Tamanho\t| Peer(s)")
+        print("[0] <Cancelar>")
 
+        # Agrupa arquivos por (nome, tamanho) para identificar arquivos identicos.
+        groupedFiles = defaultdict(lambda: {'size': 0, 'peers': []})
+        for peerAddr, fileList in self.filesReceived.items():
+            for fileInfo in fileList:
+                key = (fileInfo['name'], fileInfo['size'])
+                groupedFiles[key]['size'] = fileInfo['size']
+                # Adiciona o peer na lista de peers que possuem este arquivo.
+                if fileInfo['peer'] not in groupedFiles[key]['peers']:
+                    groupedFiles[key]['peers'].append(fileInfo['peer'])
+
+        # Cria uma lista formatada para exibicao.
+        displayList = [{'name': k[0], 'size': v['size'], 'peers': v['peers']} for k, v in groupedFiles.items()]
+
+        for i, fileInfo in enumerate(displayList, 1):
+            peersStr = ", ".join([f"{p[0]}:{p[1]}" for p in fileInfo['peers']])
+            print(f"[{i}] {fileInfo['name']}\t| {fileInfo['size']}\t\t| {peersStr}")
+        return displayList
+
+    # Encodes
+    # Full file
     def encodeFileToBase64(self, filepath):
         with open(filepath, "rb") as file:
-            file_content = file.read()
-            encoded_content = base64.b64encode(file_content)
-            return encoded_content.decode('utf-8')
+            fileContent = file.read()
+            encodedContent = base64.b64encode(fileContent)
+            return encodedContent.decode('utf-8')
 
+    # Specific chunk
+    def encodeFileChunk(self, filepath, offset, chunkSize):
+        try:
+            with open(filepath, "rb") as file:
+                file.seek(offset)
+                chunk = file.read(chunkSize)
+                encodedContent = base64.b64encode(chunk)
+                return encodedContent.decode('utf-8')
+        except FileNotFoundError:
+            return None
+
+    # Decodes
+    # Full file
     def decodeBase64ToFile(self, encoded, outputFilepath):
         decodedFile = base64.b64decode(encoded)
         with open(outputFilepath, "wb") as file:
             file.write(decodedFile)
 
+    # From chunks
+    def saveFileFromChunks(self, chunks, outputFilepath):
+        with open(outputFilepath, "wb") as file:
+            for i in sorted(chunks.keys()):
+                decodedChunk = base64.b64decode(chunks[i])
+                file.write(decodedChunk)
+
+    # Lida com os comandos recebidos do usuario
     def handleCommand(self, commandedPeer: eachare, command: int):
         match command:
             case 1: # COMANDO HELLO
@@ -91,6 +141,7 @@ class commandHandler():
                     print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()}:{neighbour.getClock()} status OFFLINE")
                     neighbour.setStatusOffline()
                 return
+
             case 2: # COMANDO GET_PEERS
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     try:
@@ -110,12 +161,15 @@ class commandHandler():
                     except ConnectionRefusedError:
                         print(f"Conexao recusada no socket {neighbour}")
                 return
+
             case 3: # COMANDO OBTER_PEERS
                 for file in os.listdir(commandedPeer.directory):
                     filename = os.fsdecode(file)
                     print(f"\t{filename}")
                 return
+
             case 4: # COMANDO BUSCAR
+                self.numberOfAnswers = 0
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus() == True:
                         try:
@@ -135,10 +189,40 @@ class commandHandler():
                             print(f"Conexao recusada no socket {neighbour}")
                 commandedPeer.handleCommands = False
                 return
+
+            case 5: # COMANDO EXIBIR ESTATISTICAS
+                print("Estatísticas de Download:")
+                if not commandedPeer.downloadStatistics:
+                    print("Nenhuma estatísticas coletada ainda.")
+                    return
+
+                # Agrupando
+                statsByKey = defaultdict(list)
+                for stat in commandedPeer.downloadStatistics:
+                    key = (stat.chunkSize, stat.numPeers, stat.fileSize)
+                    statsByKey[key].append(stat.downloadTime)
+
+                print("Tam. chunk | N peers | Tam. arquivo | N | Tempo [s] | Desvio Padrão")
+                for key, times in statsByKey.items():
+                    chunkSize, numPeers, fileSize = key
+                    n = len(times)
+                    tempoMedio = np.mean(times)
+                    desvioPadrao = np.std(times) if n > 1 else 0
+                    print(f"{chunkSize:<10} | {numPeers:<7} | {fileSize:<12} | {n:<1} | {tempoMedio:<9.5f} | {desvioPadrao:<.5f}")
+                return
+
             case 6: # COMANDO ALTERAR TAMANHO DE CHUNK
-                print("Digite novo tamanho de chunk:")
-                newSize = int(input("> "))
-                commandedPeer.setChunkSize(newSize)
+                try:
+                    print("Digite novo tamanho de chunk:")
+                    newSize = int(input("> "))
+                    if newSize > 0:
+                        commandedPeer.setChunkSize(newSize)
+                    else:
+                        print(f"Tamanho de chunk deve ser um número positivo. O tamanho atual {commandedPeer.getChunkSize()} foi mantido.")
+                except ValueError:
+                    print("Entrada inválida, por favor digite um número inteiro")
+                return
+
             case 9: # COMANDO SAIR
                 # parar de esperar conexões (fechar o socket de conexões)
                 commandedPeer.closeListening()
@@ -162,6 +246,7 @@ class commandHandler():
                 print("Esse comando não é reconhecido ou não está implementado")
                 return
 
+    # Lida com os comandos recebidos de outros peers
     def handleRemoteCommand(self, receiverPeer, message: str, receiverSocket: socket.socket, senderSocket: socket.socket):
 
         parser = messageParser.messageParser()
@@ -185,7 +270,7 @@ class commandHandler():
                 newPeer = peer.peer(senderIP, senderPort)
                 newPeer.setStatusOnline()
                 newPeer.updatePeerClock(0)
-                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, newPeer)
+                receiverPeer.currentPeer.addNeighbour(newPeer)
                 print(f"Adicionado novo peer {newPeer.getAddress()}:{newPeer.getPort()}:{newPeer.getClock()} status {"ONLINE" if newPeer.getStatus() else "OFFLINE"}")
                 if(newPeer.getClock() < senderClock):
                     newPeer.updatePeerClock(senderClock)
@@ -232,10 +317,10 @@ class commandHandler():
                 receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
 
             # The next part is the number of peers in the list
-            num_peers = message.split(" ")[1]
+            numPeers = message.split(" ")[1]
 
             # The next part is the type of message (PEER_LIST), we don't need to do anything with it here
-            message_type = message.split(" ")[2]
+            messageType = message.split(" ")[2]
 
             # The number of peers (num_peers) should be followed by the actual peer list
             sentPeers = " ".join(message.split(" ")[4:])  # Get the remaining part that contains peer information
@@ -289,7 +374,7 @@ class commandHandler():
                     findPeer.setStatusOnline()
                     print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
             else:
-                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+                receiverPeer.currentPeer.addNeighbour(findPeer)
 
             numberOfFiles = 0
             for file in os.listdir(receiverPeer.directory):
@@ -319,87 +404,151 @@ class commandHandler():
                     findPeer.setStatusOnline()
                     print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
             else:
+                findPeer.setStatusOnline()
                 receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
 
-            numFiles = message.split(" ")[3]
-            sentFiles = " ".join(message.split(" ")[4:])  # Get the remaining part that contains peer information
-            files = sentFiles.strip().split(" ")
-
-            for file in files:
-                name = file.split(":")[0]
-                size = int(file.split(":")[1])
-                receivedFile = f.file(name, size, senderIP, senderPort)
-                self.filesReceived.append(receivedFile)
-
             self.numberOfAnswers += 1
-            # print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
 
-            if self.numberOfAnswers == self.numberOfAwaitedAnswers:
-                self.printFilesList(self)
-                print("Digite o numero do arquivo para fazer o download:")
-                chosenFile = int(input("> "))
-                if(chosenFile == 0):
+            # Processa a string de arquivos recebida.
+            parts = message.split(" ")
+            filesStr = parts[4:]
+
+            # Armazena os arquivos recebidos associados ao peer que respondeu.
+            # Esta estrutura de dicionário é usada para depois agrupar arquivos idênticos.
+            peerKey = f"{senderIP}:{senderPort}"
+            self.filesReceived[peerKey] = []
+            for fileInfoStr in filesStr:
+                if ':' not in fileInfoStr: continue  # Pula entradas malformadas
+                try:
+                    name, sizeStr = fileInfoStr.split(':')
+                    size = int(sizeStr)
+                    # Adiciona a informação do arquivo e do peer de origem.
+                    self.filesReceived[peerKey].append({
+                        'name': name,
+                        'size': size,
+                        'peer': (senderIP, senderPort)
+                    })
+                except ValueError:
+                    # Ignora arquivos com formato de tamanho inválido.
+                    continue
+
+            # A lógica a seguir só é executada quando todas as respostas LS_LIST foram recebidas.
+            if self.numberOfAnswers >= self.numberOfAwaitedAnswers:
+                # Usa a função para imprimir a lista de arquivos agrupada.
+                displayList = self.printFilesList(self)
+                try:
+                    choice = int(input("Digite o numero do arquivo para fazer o download:\n> "))
+                    if choice == 0:
+                        # Limpa os dados para a próxima busca.
+                        self.filesReceived.clear()
+                        self.numberOfAnswers = 0
+                        self.numberOfAwaitedAnswers = 0
+                        receiverPeer.handleCommands = True
+                        return
+
+                    # Obtém as informações do arquivo escolhido a partir da lista exibida.
+                    selectedFile = displayList[choice - 1]
+                    filename = selectedFile['name']
+                    filesize = selectedFile['size']
+                    peersWithFile = selectedFile['peers']
+
+                    # Inicia a lógica de download em chunks.
+                    chunkSize = receiverPeer.getChunkSize()
+                    numChunks = math.ceil(filesize / chunkSize)
+                    downloadKey = f"{filename}:{filesize}"
+
+                    self.activeDownloads[downloadKey] = {
+                        'chunks': {},
+                        'expectedChunks': numChunks,
+                        'peers': peersWithFile,
+                        'startTime': time.time()
+                    }
+
+                    # Usa o Round-Robin (itertools.cycle) do seu código original para distribuir
+                    # o pedido dos chunks entre os peers que possuem o arquivo.
+                    peerCycle = itertools.cycle(peersWithFile)
+                    for i in range(numChunks):
+                        # Pega o próximo peer da lista circular.
+                        peerIp, peerPort = next(peerCycle)
+
+                        receiverPeer.currentPeer.increaseClock()
+                        # Monta a mensagem DL com o índice do chunk (i).
+                        dlMessage = f"DL {filename} {i} {chunkSize}"
+                        receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
+                                                 receiverPeer.currentPeer.getPort(),
+                                                 receiverPeer.currentPeer.getClock(),
+                                                 dlMessage,
+                                                 peerIp,
+                                                 peerPort)
+                except (ValueError, IndexError):
+                    print("Seleção inválida.")
+                    receiverPeer.handleCommands = True
+                finally:
+                    # Limpa os dados para a próxima busca, independentemente do que acontecer.
                     self.filesReceived.clear()
                     self.numberOfAnswers = 0
                     self.numberOfAwaitedAnswers = 0
-                    # print(f"[DEBUG] Number of received answers = {self.numberOfAnswers}")
-                    # print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
-                    receiverPeer.handleCommands = True
-                    return
-                downloadFile = self.filesReceived[chosenFile-1]
-                receiverPeer.currentPeer.increaseClock()
-                receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
-                                          receiverPeer.currentPeer.getPort(),
-                                          receiverPeer.currentPeer.getClock(),
-                                          f"DL {downloadFile.getFilename()} 0 0",
-                                          downloadFile.getPeerIP(),
-                                          downloadFile.getPeerPort())
             return
+
         if "DL" == messageType:
-
-            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
-            if(findPeer != None):
-                if (findPeer.getClock() < senderClock):
-                    findPeer.updatePeerClock(senderClock)
-                if(findPeer.getStatus() == False):
-                    findPeer.setStatusOnline()
-                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
-            else:
-                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
-
-
             filename = message.split(" ")[3]
-            filepath = f"{receiverPeer.directory}/{filename}"
-            encodedFile = self.encodeFileToBase64(self, filepath)
-            receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
-                                     receiverPeer.currentPeer.getPort(),
-                                     receiverPeer.currentPeer.getClock(),
-                                     f"FILE {filename} 0 0 {encodedFile}",
-                                     senderIP,
-                                     senderPort)
+            chunkIndex = int(message.split(" ")[4])
+            chunkSize = int(message.split(" ")[5])
+
+            filepath = os.path.join(receiverPeer.directory, filename)
+            offset = chunkIndex * chunkSize
+
+            # Le e codifica o chunk solicitado
+            encodedChunk = self.encodeFileChunk(self, filepath, offset, chunkSize)
+
+            if encodedChunk:
+                receiverPeer.currentPeer.increaseClock()
+                fileMessage = f"FILE {filename} {chunkIndex} {encodedChunk}"
+                receiverPeer.sendMessage(receiverPeer.currentPeer.getAddress(),
+                                         receiverPeer.currentPeer.getPort(),
+                                         receiverPeer.currentPeer.getClock(),
+                                         fileMessage,
+                                         senderIP,
+                                         senderPort)
             return
+
         if "FILE" == messageType:
-
-            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
-            if(findPeer != None):
-                if (findPeer.getClock() < senderClock):
-                    findPeer.updatePeerClock(senderClock)
-                if(findPeer.getStatus() == False):
-                    findPeer.setStatusOnline()
-                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
-            else:
-                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
-
-
             filename = message.split(" ")[3]
-            encodedFile = message.split(" ")[6]
-            decodedFile = self.decodeBase64ToFile(self, encodedFile, f"{receiverPeer.directory}/{filename}")
-            self.filesReceived.clear()
-            self.numberOfAnswers = 0
-            self.numberOfAwaitedAnswers = 0
-            print(f"Download do arquivo {filename} finalizado.")
-            receiverPeer.handleCommands = True
+            chunkIndex = int(message.split(" ")[4])
+            encodedChunk = message.split(" ")[5]
+
+            # Encontra o download correspondente na lista de downloads ativos.
+            downloadKey = next((key for key in self.activeDownloads if key.startswith(f"{filename}:")), None)
+
+            if downloadKey:
+                downloadInfo = self.activeDownloads[downloadKey]
+                downloadInfo['chunks'][chunkIndex] = encodedChunk
+
+                # Se todos os chunks foram recebidos, finaliza o download.
+                if len(downloadInfo['chunks']) == downloadInfo['expectedChunks']:
+                    endTime = time.time()  # Finaliza a contagem de tempo.
+
+                    outputPath = os.path.join(receiverPeer.directory, filename)
+                    # Salva o arquivo a partir dos chunks.
+                    self.saveFileFromChunks(self, downloadInfo['chunks'], outputPath)
+                    print(f"Download do arquivo {filename} finalizado.")
+
+                    # Coleta e armazena as estatisticas do download.
+                    filesize = int(downloadKey.split(':')[1])
+                    elapsedTime = endTime - downloadInfo['startTime']
+                    stat = downloadStats.DownloadStats(
+                        chunkSize=receiverPeer.getChunkSize(),
+                        numPeers=len(downloadInfo['peers']),
+                        fileSize=filesize,
+                        downloadTime=elapsedTime
+                    )
+                    receiverPeer.downloadStatistics.append(stat)
+
+                    # Limpa o registro do download.
+                    del self.activeDownloads[downloadKey]
+                    receiverPeer.handleCommands = True
             return
+
         if "BYE" == messageType:
             # print("[DEBUG] Recebida mensagem BYE")
             findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
@@ -414,11 +563,6 @@ class commandHandler():
 
     def findPeerInList(self, currentPeer, IP:str, port:int):
         for p in currentPeer.neighbourPeers:
-            pIP = p.getAddress()
-            pPort = p.getPort()
-            # print(f"[DEBUG] Comparando {p} com {IP}:{port}")
-            if IP == pIP and port == pPort:
-                # print("[DEBUG] Match")
+            if IP == p.getAddress() and port == p.getPort():
                 return p
-            # print("[DEBUG] Sem match")
         return None
