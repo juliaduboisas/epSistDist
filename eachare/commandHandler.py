@@ -101,6 +101,8 @@ class commandHandler():
                                                   "GET_PEERS",
                                                   neighbour.getAddress(),
                                                   neighbour.getPort())
+                        neighbour.setStatusOnline()
+                        print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status ONLINE")
                         # RECEBER RESPOSTA AQUI!!!
                     except BrokenPipeError:
                         print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
@@ -116,15 +118,21 @@ class commandHandler():
             case 4: # COMANDO BUSCAR
                 for neighbour in commandedPeer.currentPeer.neighbourPeers:
                     if neighbour.getStatus() == True:
-                        commandedPeer.currentPeer.increaseClock()
-                        commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
-                                                  commandedPeer.currentPeer.getPort(),
-                                                  commandedPeer.currentPeer.getClock(),
-                                                  "LS",
-                                                  neighbour.getAddress(),
-                                                  neighbour.getPort())
-                        self.numberOfAwaitedAnswers += 1
-                        # print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                        try:
+                            commandedPeer.currentPeer.increaseClock()
+                            commandedPeer.sendMessage(commandedPeer.currentPeer.getAddress(),
+                                                      commandedPeer.currentPeer.getPort(),
+                                                      commandedPeer.currentPeer.getClock(),
+                                                      "LS",
+                                                      neighbour.getAddress(),
+                                                      neighbour.getPort())
+                            self.numberOfAwaitedAnswers += 1
+                            # print(f"[DEBUG] Awaited answers = {self.numberOfAwaitedAnswers}")
+                        except BrokenPipeError:
+                            print(f"Atualizando peer {neighbour.getAddress()}:{neighbour.getPort()} status OFFLINE")
+                            neighbour.setStatusOffline()
+                        except ConnectionRefusedError:
+                            print(f"Conexao recusada no socket {neighbour}")
                 commandedPeer.handleCommands = False
                 return
             case 9:
