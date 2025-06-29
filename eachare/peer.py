@@ -63,7 +63,11 @@ class peer():
         return self.neighbourPeers
 
     def addNeighbour(self, neighbour):
+        for n in self.neighbourPeers:
+            if neighbour == n:
+                return False
         self.neighbourPeers.append(neighbour)
+        return True
 
     def makeNeighbourList(self, vizinhos):
         f = open(vizinhos, 'r')
