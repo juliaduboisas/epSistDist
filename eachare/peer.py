@@ -67,6 +67,8 @@ class peer():
             if neighbour == n:
                 return False
         self.neighbourPeers.append(neighbour)
+        print(
+            f"Adicionado novo peer {neighbour.getAddress()}:{neighbour.getPort()}:{neighbour.getClock()} status {"ONLINE" if neighbour.getStatus() else "OFFLINE"}")
         return True
 
     def makeNeighbourList(self, vizinhos):

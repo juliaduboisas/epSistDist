@@ -186,10 +186,14 @@ class commandHandler():
             print("> ")
         if "GET_PEERS" == messageType:
             findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
-            if(findPeer != None) and (findPeer.getClock() < senderClock):
-                findPeer.setStatusOnline()
-                findPeer.updatePeerClock(senderClock)
-                print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
 
             responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
             for neighbour in receiverPeer.currentPeer.neighbourPeers:
@@ -204,6 +208,17 @@ class commandHandler():
                                      senderPort)
             print("> ")
         if "PEER_LIST" == messageType:
+
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+
             # The next part is the number of peers in the list
             num_peers = message.split(" ")[1]
 
@@ -253,6 +268,17 @@ class commandHandler():
                     print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
             print("> ")
         if "LS" == messageType:
+
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+
             numberOfFiles = 0
             for file in os.listdir(receiverPeer.directory):
                 numberOfFiles += 1
@@ -272,6 +298,17 @@ class commandHandler():
             print("> ")
             return
         if "LS_LIST" == messageType:
+
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+
             numFiles = message.split(" ")[3]
             sentFiles = " ".join(message.split(" ")[4:])  # Get the remaining part that contains peer information
             files = sentFiles.strip().split(" ")
@@ -307,6 +344,18 @@ class commandHandler():
                                           downloadFile.getPeerPort())
             return
         if "DL" == messageType:
+
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+
+
             filename = message.split(" ")[3]
             filepath = f"{receiverPeer.directory}/{filename}"
             encodedFile = self.encodeFileToBase64(self, filepath)
@@ -318,6 +367,17 @@ class commandHandler():
                                      senderPort)
             return
         if "FILE" == messageType:
+
+            findPeer = self.findPeerInList(self, receiverPeer.currentPeer, senderIP, senderPort)
+            if(findPeer != None):
+                if (findPeer.getClock() < senderClock):
+                    findPeer.updatePeerClock(senderClock)
+                if(findPeer.getStatus() == False):
+                    findPeer.setStatusOnline()
+                    print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
+            else:
+                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+
 
             filename = message.split(" ")[3]
             encodedFile = message.split(" ")[6]
