@@ -98,7 +98,7 @@ class eachare():
     # Manda uma mensagem para um peer especifico
     def sendMessage(self, senderAddress, senderPort, clock, type, receiverAddress, receiverPort):
         message = f"{senderAddress}:{senderPort} {clock} {type}"
-        print(f"Encaminhando mensagem \"{message}\" para {receiverAddress}:{receiverPort}")
+        # print(f"Encaminhando mensagem \"{message}\" para {receiverAddress}:{receiverPort}")
         try:
             senderSocket = socket.socket()
             senderSocket.connect((receiverAddress, receiverPort))

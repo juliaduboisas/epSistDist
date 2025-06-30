@@ -256,7 +256,7 @@ class commandHandler():
         senderClock = parser.senderClock
         messageType = parser.messageType
 
-        print(f"Mensagem recebida: \"{message}\"")
+        # print(f"Mensagem recebida: \"{message}\"")
 
         if(senderClock > receiverPeer.currentPeer.getClock()):
             receiverPeer.currentPeer.updateClock(senderClock)
@@ -290,7 +290,7 @@ class commandHandler():
                     findPeer.setStatusOnline()
                     print(f"Atualizando peer {findPeer.getAddress()}:{findPeer.getPort()}:{findPeer.getClock()} status {"ONLINE" if findPeer.getStatus() else "OFFLINE"}")
             else:
-                receiverPeer.currentPeer.addNeighbour(receiverPeer.currentPeer, findPeer)
+                receiverPeer.currentPeer.addNeighbour(findPeer)
 
             responseArgs = f"{len(receiverPeer.currentPeer.neighbourPeers)} "
             for neighbour in receiverPeer.currentPeer.neighbourPeers:

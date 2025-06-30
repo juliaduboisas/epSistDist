@@ -38,11 +38,11 @@ class peer():
 
     def increaseClock(self):
         self.clock += 1
-        print(f"=> Atualizando relogio para {self.clock}")
+        # print(f"=> Atualizando relogio para {self.clock}")
 
     def updateClock(self, newClock: int):
         self.clock = newClock + 1
-        print(f"=> Atualizando relogio para {self.clock}")
+        # print(f"=> Atualizando relogio para {self.clock}")
 
     def updatePeerClock(self, newClock: int):
         self.clock = newClock

@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="peer3" type="PythonConfigurationType" factoryName="Python">
+  <configuration default="false" name="testSender2" type="PythonConfigurationType" factoryName="Python">
     <module name="epSistDist" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
@@ -15,7 +15,7 @@
     <option name="ADD_SOURCE_ROOTS" value="true" />
     <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
     <option name="SCRIPT_NAME" value="$PROJECT_DIR$/eachare/eachare.py" />
-    <option name="PARAMETERS" value="127.0.0.1:5002 vizinhos2.txt compartilhado" />
+    <option name="PARAMETERS" value="127.0.0.1:5002 vizinhos2.txt compartilhado3" />
     <option name="SHOW_COMMAND_LINE" value="false" />
     <option name="EMULATE_TERMINAL" value="false" />
     <option name="MODULE_MODE" value="false" />
